@@ -1,0 +1,19 @@
+[package]
+name = "dc-bot"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+faucet-core = { package = "core", path = "../core" }
+serde.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dependencies.serenity]
+version = "0.12"
+default-features = false
+features = ["client", "gateway", "rustls_backend", "model", "http", "unstable_discord_api"]

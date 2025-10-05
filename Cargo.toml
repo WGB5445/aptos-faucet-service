@@ -1,0 +1,41 @@
+[workspace]
+resolver = "2"
+members = [
+    "core",
+    "web",
+    "tg-bot",
+    "dc-bot",
+    "reporting",
+]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+version = "0.1.0"
+authors = ["Faucet Service <ops@example.com>"]
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+axum = { version = "0.7", features = ["macros", "tokio", "tower-log"] }
+chrono = { version = "0.4", features = ["serde"] }
+config = "0.14"
+futures = "0.3"
+mongodb = { version = "2.8", default-features = false, features = ["sync", "tokio-runtime"] }
+once_cell = "1.19"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio", "postgres", "macros", "uuid", "chrono"] }
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+bson = "2"
+tokio-stream = "0.1"
+dashmap = "5"
+
+[profile.release]
+lto = true
+codegen-units = 1

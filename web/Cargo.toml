@@ -1,0 +1,23 @@
+[package]
+name = "web"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+chrono.workspace = true
+faucet-core = { package = "core", path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+dashmap = "5"
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+
+[dependencies.tower]
+version = "0.4"
+features = ["timeout", "util"]

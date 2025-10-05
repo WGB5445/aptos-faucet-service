@@ -1,0 +1,32 @@
+[package]
+name = "core"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+config.workspace = true
+futures.workspace = true
+once_cell.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+humantime-serde = "1.1"
+mongodb = { workspace = true, optional = true }
+bson = { version = "2" , optional = true }
+tokio-stream = { version = "0.1", optional = true }
+dashmap.workspace = true
+
+[features]
+default = ["postgres"]
+postgres = []
+mongodb = ["dep:mongodb", "dep:bson", "dep:tokio-stream"]

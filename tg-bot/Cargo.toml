@@ -1,0 +1,18 @@
+[package]
+name = "tg-bot"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+faucet-core = { package = "core", path = "../core" }
+serde.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dependencies.teloxide]
+version = "0.17"
+features = ["macros", "ctrlc_handler"]

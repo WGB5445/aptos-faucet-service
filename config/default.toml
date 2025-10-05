@@ -1,0 +1,27 @@
+[server]
+http_addr = "0.0.0.0:8080"
+public_base_url = "http://localhost:8080"
+
+[limits]
+default_amount = 1
+default_daily_cap = 5
+privileged_amount = 500
+privileged_daily_cap = 1000
+
+[auth]
+google_client_id = "CHANGE_ME"
+google_client_secret = "CHANGE_ME"
+privileged_domains = ["aptoslabs.com"]
+
+[queue]
+visibility_timeout = "30s"
+retry_backoff = "10s"
+max_retries = 5
+
+[telemetry]
+json = true
+otlp_endpoint = ""
+
+[database]
+kind = "postgres"
+url = "postgres://user:password@localhost:5432/faucet"
