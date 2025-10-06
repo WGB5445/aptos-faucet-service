@@ -9,8 +9,8 @@ privileged_amount = 500
 privileged_daily_cap = 1000
 
 [auth]
-google_client_id = "CHANGE_ME"
-google_client_secret = "CHANGE_ME"
+google_client_id = ""
+google_client_secret = ""
 privileged_domains = ["aptoslabs.com"]
 
 [queue]
@@ -24,4 +24,4 @@ otlp_endpoint = ""
 
 [database]
 kind = "postgres"
-url = "postgres://user:password@localhost:5432/faucet"
+url = ""

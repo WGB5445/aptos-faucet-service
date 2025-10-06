@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google OAuth 配置测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        #google-signin-button {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Google OAuth 配置测试</h1>
+        
+        <div class="info">
+            <h3>当前配置信息</h3>
+            <p><strong>当前域名:</strong> <span id="current-origin"></span></p>
+            <p><strong>Google Client ID:</strong> <span id="client-id"></span></p>
+            <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+        </div>
+
+        <div id="status" class="info">
+            <h3>状态检查</h3>
+            <p id="google-status">检查中...</p>
+        </div>
+
+        <div id="google-signin-button"></div>
+
+        <div id="result"></div>
+
+        <button onclick="testGoogleAuth()">测试 Google 认证</button>
+        <button onclick="checkConfiguration()">重新检查配置</button>
+    </div>
+
+    <script>
+        const GOOGLE_CLIENT_ID = '390312604045-arkpt712vsl7bqo471dh5rb8n3radgef.apps.googleusercontent.com';
+        
+        // 显示当前配置信息
+        document.getElementById('current-origin').textContent = window.location.origin;
+        document.getElementById('client-id').textContent = GOOGLE_CLIENT_ID;
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+
+        function checkConfiguration() {
+            const statusDiv = document.getElementById('google-status');
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = '';
+            
+            // 检查 Google 库是否加载
+            if (typeof google === 'undefined') {
+                statusDiv.innerHTML = '<span style="color: red;">❌ Google Identity Services 库未加载</span>';
+                return;
+            }
+            
+            // 检查 Google 配置
+            try {
+                google.accounts.id.initialize({
+                    client_id: GOOGLE_CLIENT_ID,
+                    callback: handleCredentialResponse,
+                    auto_select: false,
+                    cancel_on_tap_outside: false,
+                });
+                
+                statusDiv.innerHTML = '<span style="color: green;">✅ Google 配置成功</span>';
+                
+                // 渲染登录按钮
+                google.accounts.id.renderButton(
+                    document.getElementById('google-signin-button'),
+                    {
+                        theme: 'outline',
+                        size: 'large',
+                        text: 'signin_with',
+                        shape: 'rectangular',
+                        logo_alignment: 'left',
+                        width: '100%',
+                    }
+                );
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<span style="color: red;">❌ Google 配置失败: ${error.message}</span>`;
+                console.error('Google configuration error:', error);
+            }
+        }
+
+        function handleCredentialResponse(response) {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // 解析 JWT token
+                const payload = parseJwt(response.credential);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ 登录成功！</h3>
+                        <p><strong>用户ID:</strong> ${payload.sub}</p>
+                        <p><strong>邮箱:</strong> ${payload.email}</p>
+                        <p><strong>姓名:</strong> ${payload.name || 'N/A'}</p>
+                        <p><strong>域名:</strong> ${payload.hd || 'N/A'}</p>
+                        <p><strong>邮箱验证:</strong> ${payload.email_verified ? '是' : '否'}</p>
+                    </div>
+                `;
+                
+                console.log('Login successful:', payload);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ 登录失败</h3>
+                        <p>错误: ${error.message}</p>
+                    </div>
+                `;
+                console.error('Login error:', error);
+            }
+        }
+
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(
+                    atob(base64)
+                        .split('')
+                        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                        .join('')
+                );
+                return JSON.parse(jsonPayload);
+            } catch (error) {
+                throw new Error('Failed to parse JWT: ' + error.message);
+            }
+        }
+
+        function testGoogleAuth() {
+            if (typeof google !== 'undefined' && google.accounts) {
+                google.accounts.id.prompt();
+            } else {
+                alert('Google Identity Services 未加载，请检查网络连接和配置');
+            }
+        }
+
+        // 页面加载时自动检查配置
+        window.onload = function() {
+            // 加载 Google Identity Services
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.onload = checkConfiguration;
+            script.onerror = function() {
+                document.getElementById('google-status').innerHTML = 
+                    '<span style="color: red;">❌ 无法加载 Google Identity Services 库</span>';
+            };
+            document.head.appendChild(script);
+        };
+    </script>
+</body>
+</html>

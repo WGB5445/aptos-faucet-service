@@ -1,5 +1,6 @@
 mod auth;
 mod error;
+mod jwt;
 mod session;
 
 use std::sync::Arc;
@@ -13,6 +14,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use tower_http::cors::CorsLayer;
 use error::ApiError;
 use faucet_core::{
     config::AppConfig,
@@ -21,6 +23,26 @@ use faucet_core::{
     queue::LoggingAptosClient,
     DatabaseStore, FaucetService, Identity,
 };
+use jwt::JwtService;
+
+// 辅助函数来解析Role
+fn parse_role(s: &str) -> Result<Role> {
+    match s {
+        "user" => Ok(Role::User),
+        "privileged" => Ok(Role::Privileged),
+        "admin" => Ok(Role::Admin),
+        _ => anyhow::bail!("invalid role: {}", s),
+    }
+}
+
+fn parse_channel(s: &str) -> Result<Channel> {
+    match s {
+        "web" => Ok(Channel::Web),
+        "telegram" => Ok(Channel::Telegram),
+        "discord" => Ok(Channel::Discord),
+        _ => anyhow::bail!("invalid channel: {}", s),
+    }
+}
 use serde::{Deserialize, Serialize};
 use session::SessionManager;
 use tokio::signal;
@@ -31,10 +53,14 @@ struct AppState {
     faucet: Arc<FaucetService<DatabaseStore, LoggingAptosClient>>,
     sessions: SessionManager,
     verifier: GoogleVerifier,
+    jwt_service: JwtService,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // 加载 .env 文件（如果存在）
+    dotenv::dotenv().ok();
+    
     let config = AppConfig::load()?;
     logging::init_telemetry(&config.telemetry);
 
@@ -54,11 +80,17 @@ async fn main() -> Result<()> {
     ));
 
     let verifier = GoogleVerifier::new(&config.auth.google_client_id)?;
+    
+    // 初始化JWT服务，使用环境变量或默认密钥
+    let jwt_secret = std::env::var("FAUCET__JWT_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-this-in-production".to_string());
+    let jwt_service = JwtService::new(&jwt_secret)?;
 
     let state = AppState {
         faucet,
         sessions: SessionManager::default(),
         verifier,
+        jwt_service,
     };
 
     info!(addr = %config.server.http_addr, "Web 服务启动");
@@ -87,12 +119,28 @@ fn should_skip_db() -> bool {
 }
 
 fn build_router(state: AppState) -> Router {
+    // 配置CORS - 允许开发环境的域名
+    let cors = CorsLayer::new()
+        .allow_origin([
+            "http://localhost:3000".parse().unwrap(),
+            "http://localhost:3001".parse().unwrap(),
+            "http://127.0.0.1:3000".parse().unwrap(),
+            "http://127.0.0.1:3001".parse().unwrap(),
+        ])
+        .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::OPTIONS])
+        .allow_headers([
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+        ])
+        .allow_credentials(true);
+
     Router::new()
         .route("/health", get(health))
         .route("/api/session", post(create_session))
         .route("/api/me", get(current_user))
         .route("/api/mint", post(mint_tokens))
         .route("/api/admin/role", post(update_role))
+        .layer(cors)
         .with_state(state)
 }
 
@@ -164,7 +212,16 @@ async fn create_session(
         })
         .await?;
 
-    let token = state.sessions.create(&user);
+    // 生成JWT token，默认24小时过期
+    let token = state.jwt_service.generate_token(
+        user.id,
+        &user.handle,
+        &user.channel,
+        user.domain.as_deref(),
+        &user.role,
+        24, // 24小时过期
+    )?;
+    
     let view = build_user_view(&state, &user).await?;
     Ok(Json(SessionResponse { token, user: view }))
 }
@@ -238,12 +295,18 @@ async fn build_user_view(state: &AppState, user: &User) -> Result<UserView, ApiE
 }
 
 async fn resolve_user(state: &AppState, token: &str) -> Result<User, ApiError> {
-    let session = state.sessions.get(token).ok_or(ApiError::Unauthorized)?;
+    // 验证JWT token
+    let claims = state.jwt_service.verify_token(token)
+        .map_err(|_| ApiError::Unauthorized)?;
+
+    // 从JWT claims中获取用户信息
+    let channel = parse_channel(&claims.channel)
+        .map_err(|_| ApiError::Unauthorized)?;
 
     let identity = Identity {
-        channel: session.channel.clone(),
-        handle: &session.handle,
-        domain: session.domain.as_deref(),
+        channel,
+        handle: &claims.handle,
+        domain: claims.domain.as_deref(),
     };
 
     let user = state.faucet.touch_user(identity).await?;

@@ -18,7 +18,54 @@ impl AppConfig {
             .add_source(config::File::with_name("config/default").required(false))
             .add_source(config::Environment::with_prefix("FAUCET").separator("__"));
 
-        builder.build()?.try_deserialize()
+        let config: AppConfig = builder.build()?.try_deserialize()?;
+        
+        // 验证必需的配置
+        config.validate()?;
+        
+        Ok(config)
+    }
+    
+    fn validate(&self) -> Result<(), config::ConfigError> {
+        // 检查是否跳过数据库验证
+        let skip_db = std::env::args().any(|arg| arg == "--no-db") ||
+            std::env::var("FAUCET_NO_DB")
+                .map(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+                .unwrap_or(false);
+        
+        // 验证数据库配置（除非跳过数据库）
+        if !skip_db {
+            match &self.database {
+                DatabaseConfig::Postgres { url } if url.is_empty() => {
+                    return Err(config::ConfigError::Message(
+                        "数据库 URL 不能为空，请设置 FAUCET__DATABASE__URL 环境变量".to_string()
+                    ));
+                }
+                DatabaseConfig::Mongodb { url, .. } if url.is_empty() => {
+                    return Err(config::ConfigError::Message(
+                        "MongoDB URL 不能为空，请设置 FAUCET__DATABASE__URL 环境变量".to_string()
+                    ));
+                }
+                _ => {}
+            }
+        }
+        
+        // 验证 OAuth 配置
+        if self.auth.google_client_id.is_empty() {
+            return Err(config::ConfigError::Message(
+                "Google Client ID 不能为空，请设置 FAUCET__AUTH__GOOGLE_CLIENT_ID 环境变量".to_string()
+            ));
+        }
+        
+        // 注意：google_client_secret 不是必需的，因为后端只验证ID token
+        // 如果需要服务器端OAuth流程，可以取消下面的注释
+        // if self.auth.google_client_secret.is_empty() {
+        //     return Err(config::ConfigError::Message(
+        //         "Google Client Secret 不能为空，请设置 FAUCET__AUTH__GOOGLE_CLIENT_SECRET 环境变量".to_string()
+        //     ));
+        // }
+        
+        Ok(())
     }
 }
 
