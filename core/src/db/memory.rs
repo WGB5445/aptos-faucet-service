@@ -7,9 +7,9 @@ use dashmap::DashMap;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::models::{MintOutcome, MintRequest, MintStatus, Quota, Role, User};
+use crate::models::{MintOutcome, MintRequest, MintStatus, Quota, Role, User, SystemConfig, LimitConfigUpdate};
 use crate::repository::{
-    DailyReportRow, MintRepository, QuotaRepository, ReportingRepository, UserRepository,
+    DailyReportRow, MintRepository, QuotaRepository, ReportingRepository, UserRepository, ConfigRepository,
 };
 
 #[derive(Clone, Default)]
@@ -18,6 +18,7 @@ pub struct MemoryStore {
     mints: Arc<DashMap<Uuid, MintRequest>>,
     queue: Arc<Mutex<VecDeque<Uuid>>>,
     quotas: Arc<DashMap<(Uuid, NaiveDate), Quota>>,
+    configs: Arc<DashMap<String, SystemConfig>>,
     failures: Arc<Mutex<Vec<(Uuid, DateTime<Utc>, String)>>>,
 }
 
@@ -180,5 +181,64 @@ impl ReportingRepository for MemoryStore {
         let mut failures = self.failures.lock().await;
         failures.push((request_id, when, reason.to_string()));
         Ok(())
+    }
+}
+
+#[async_trait]
+impl ConfigRepository for MemoryStore {
+    async fn get_config(&self, key: &str) -> Result<Option<SystemConfig>> {
+        Ok(self.configs.get(key).map(|entry| entry.value().clone()))
+    }
+
+    async fn set_config(&self, key: &str, value: &str, description: Option<&str>) -> Result<()> {
+        let now = Utc::now();
+        let config = SystemConfig {
+            id: Uuid::new_v4(),
+            key: key.to_string(),
+            value: value.to_string(),
+            description: description.map(|s| s.to_string()),
+            created_at: now,
+            updated_at: now,
+        };
+        self.configs.insert(key.to_string(), config);
+        Ok(())
+    }
+
+    async fn get_all_configs(&self) -> Result<Vec<SystemConfig>> {
+        Ok(self.configs.iter().map(|entry| entry.value().clone()).collect())
+    }
+
+    async fn update_limit_config(&self, config: &LimitConfigUpdate) -> Result<()> {
+        if let Some(amount) = config.default_amount {
+            self.set_config("limits.default_amount", &amount.to_string(), Some("Default user amount")).await?;
+        }
+        if let Some(cap) = config.default_daily_cap {
+            self.set_config("limits.default_daily_cap", &cap.to_string(), Some("Default user daily cap")).await?;
+        }
+        if let Some(amount) = config.privileged_amount {
+            self.set_config("limits.privileged_amount", &amount.to_string(), Some("Privileged user amount")).await?;
+        }
+        if let Some(cap) = config.privileged_daily_cap {
+            self.set_config("limits.privileged_daily_cap", &cap.to_string(), Some("Privileged user daily cap")).await?;
+        }
+        Ok(())
+    }
+
+    async fn get_limit_config(&self) -> Result<Option<LimitConfigUpdate>> {
+        let default_amount = self.get_config("limits.default_amount").await?.map(|c| c.value.parse::<u64>().ok()).flatten();
+        let default_daily_cap = self.get_config("limits.default_daily_cap").await?.map(|c| c.value.parse::<u64>().ok()).flatten();
+        let privileged_amount = self.get_config("limits.privileged_amount").await?.map(|c| c.value.parse::<u64>().ok()).flatten();
+        let privileged_daily_cap = self.get_config("limits.privileged_daily_cap").await?.map(|c| c.value.parse::<u64>().ok()).flatten();
+
+        if default_amount.is_some() || default_daily_cap.is_some() || privileged_amount.is_some() || privileged_daily_cap.is_some() {
+            Ok(Some(LimitConfigUpdate {
+                default_amount,
+                default_daily_cap,
+                privileged_amount,
+                privileged_daily_cap,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 }

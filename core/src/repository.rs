@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use uuid::Uuid;
 
-use crate::models::{MintOutcome, MintRequest, MintStatus, Quota, Role, User};
+use crate::models::{MintOutcome, MintRequest, MintStatus, Quota, Role, User, SystemConfig, LimitConfigUpdate};
 
 #[async_trait]
 pub trait UserRepository: Send + Sync {
@@ -42,4 +42,13 @@ pub struct DailyReportRow {
     pub total_amount: u64,
     pub success_count: u64,
     pub failure_count: u64,
+}
+
+#[async_trait]
+pub trait ConfigRepository: Send + Sync {
+    async fn get_config(&self, key: &str) -> anyhow::Result<Option<SystemConfig>>;
+    async fn set_config(&self, key: &str, value: &str, description: Option<&str>) -> anyhow::Result<()>;
+    async fn get_all_configs(&self) -> anyhow::Result<Vec<SystemConfig>>;
+    async fn update_limit_config(&self, config: &LimitConfigUpdate) -> anyhow::Result<()>;
+    async fn get_limit_config(&self) -> anyhow::Result<Option<LimitConfigUpdate>>;
 }

@@ -10,7 +10,7 @@ use crate::{
     models::{Channel, MintOutcome, MintStatus, Role, User},
     queue::{new_request, AptosClient},
     rate_limit::RateLimiter,
-    repository::{MintRepository, QuotaRepository, ReportingRepository, UserRepository},
+    repository::{MintRepository, QuotaRepository, ReportingRepository, UserRepository, ConfigRepository},
 };
 
 #[derive(Debug, Clone)]
@@ -44,6 +44,7 @@ where
         + MintRepository
         + QuotaRepository
         + ReportingRepository
+        + ConfigRepository
         + Send
         + Sync
         + 'static,
@@ -73,6 +74,22 @@ where
 
     pub fn max_amount_for_role(&self, role: &Role) -> u64 {
         self.rate_limiter.max_amount(role)
+    }
+
+    pub async fn get_dynamic_limits(&self) -> Result<LimitConfig> {
+        // 首先尝试从数据库获取配置
+        if let Ok(Some(db_config)) = self.store.get_limit_config().await {
+            // 如果数据库有配置，使用数据库配置，否则使用默认配置
+            Ok(LimitConfig {
+                default_amount: db_config.default_amount.unwrap_or(self.limits.default_amount),
+                default_daily_cap: db_config.default_daily_cap.unwrap_or(self.limits.default_daily_cap),
+                privileged_amount: db_config.privileged_amount.unwrap_or(self.limits.privileged_amount),
+                privileged_daily_cap: db_config.privileged_daily_cap.or(self.limits.privileged_daily_cap),
+            })
+        } else {
+            // 如果数据库没有配置，使用默认配置
+            Ok(self.limits.clone())
+        }
     }
 
     fn determine_role(&self, existing: Option<&Role>, domain: Option<&str>) -> Role {
@@ -210,18 +227,20 @@ where
         }
     }
 
-    pub fn default_amount(&self, role: &Role) -> u64 {
-        match role {
-            Role::Admin | Role::Privileged => self.limits.privileged_amount,
-            Role::User => self.limits.default_amount,
-        }
+    pub async fn default_amount(&self, role: &Role) -> Result<u64> {
+        let limits = self.get_dynamic_limits().await?;
+        Ok(match role {
+            Role::Admin | Role::Privileged => limits.privileged_amount,
+            Role::User => limits.default_amount,
+        })
     }
 
-    pub fn max_daily_cap(&self, role: &Role) -> Option<u64> {
-        match role {
-            Role::Admin | Role::Privileged => self.limits.privileged_daily_cap,
-            Role::User => Some(self.limits.default_daily_cap),
-        }
+    pub async fn max_daily_cap(&self, role: &Role) -> Result<Option<u64>> {
+        let limits = self.get_dynamic_limits().await?;
+        Ok(match role {
+            Role::Admin | Role::Privileged => limits.privileged_daily_cap,
+            Role::User => Some(limits.default_daily_cap),
+        })
     }
 
     pub async fn quota_snapshot(&self, user: &User) -> Result<QuotaSnapshot> {
@@ -235,12 +254,20 @@ where
 
         Ok(QuotaSnapshot {
             minted,
-            cap: self.max_daily_cap(&user.role),
+            cap: self.max_daily_cap(&user.role).await?,
         })
     }
 
     pub async fn find_user(&self, channel: Channel, handle: &str) -> Result<Option<User>> {
         self.store.find_user(channel.as_str(), handle).await
+    }
+
+    pub async fn get_all_configs(&self) -> Result<Vec<crate::models::SystemConfig>> {
+        self.store.get_all_configs().await
+    }
+
+    pub async fn update_limit_config(&self, config: &crate::models::LimitConfigUpdate) -> Result<()> {
+        self.store.update_limit_config(config).await
     }
 }
 

@@ -88,6 +88,12 @@ pub struct AuthConfig {
     pub google_client_id: String,
     pub google_client_secret: String,
     pub privileged_domains: Vec<String>,
+    #[serde(default = "default_jwt_expiry_hours")]
+    pub jwt_expiry_hours: i64,
+}
+
+fn default_jwt_expiry_hours() -> i64 {
+    168 // 7天 = 7 * 24 = 168小时
 }
 
 #[derive(Debug, Deserialize, Clone)]

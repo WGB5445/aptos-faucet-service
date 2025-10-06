@@ -78,18 +78,6 @@ const LandingPage: React.FC = () => {
     handleMint(amountInSmallestUnit);
   };
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setIsLoading(true);
-      setLoginError(null);
-      await signIn();
-    } catch (err) {
-      console.error('Login failed:', err);
-      setLoginError('登录失败，请重试');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -235,24 +223,8 @@ const LandingPage: React.FC = () => {
                   <div 
                     ref={googleButtonRef}
                     id="google-signin-button"
-                    className="w-full mb-4"
+                    className="w-full"
                   ></div>
-                  
-                  {/* 备用登录按钮 */}
-                  <button
-                    onClick={handleGoogleSignIn}
-                    disabled={isLoading}
-                    className="w-full btn btn-primary btn-md disabled:opacity-50"
-                  >
-                    {isLoading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    ) : (
-                      <>
-                        <LogIn className="h-4 w-4 mr-2" />
-                        使用 Google 登录
-                      </>
-                    )}
-                  </button>
                 </div>
 
                 <div className="mt-4 text-center">

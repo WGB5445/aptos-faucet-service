@@ -54,6 +54,7 @@ struct AppState {
     sessions: SessionManager,
     verifier: GoogleVerifier,
     jwt_service: JwtService,
+    config: AppConfig,
 }
 
 #[tokio::main]
@@ -86,18 +87,22 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "your-secret-key-change-this-in-production".to_string());
     let jwt_service = JwtService::new(&jwt_secret)?;
 
+    // 保存配置值，因为config会被移动到AppState中
+    let http_addr = config.server.http_addr.clone();
+
     let state = AppState {
         faucet,
         sessions: SessionManager::default(),
         verifier,
         jwt_service,
+        config,
     };
 
-    info!(addr = %config.server.http_addr, "Web 服务启动");
+    info!(addr = %http_addr, "Web 服务启动");
 
     let router = build_router(state);
 
-    let listener = tokio::net::TcpListener::bind(&config.server.http_addr).await?;
+    let listener = tokio::net::TcpListener::bind(&http_addr).await?;
     axum::serve(listener, router)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
@@ -140,6 +145,8 @@ fn build_router(state: AppState) -> Router {
         .route("/api/me", get(current_user))
         .route("/api/mint", post(mint_tokens))
         .route("/api/admin/role", post(update_role))
+        .route("/api/admin/config", get(get_configs))
+        .route("/api/admin/config/limits", post(update_limit_config))
         .layer(cors)
         .with_state(state)
 }
@@ -212,14 +219,14 @@ async fn create_session(
         })
         .await?;
 
-    // 生成JWT token，默认24小时过期
+    // 生成JWT token，使用配置的过期时间
     let token = state.jwt_service.generate_token(
         user.id,
         &user.handle,
         &user.channel,
         user.domain.as_deref(),
         &user.role,
-        24, // 24小时过期
+        state.config.auth.jwt_expiry_hours,
     )?;
     
     let view = build_user_view(&state, &user).await?;
@@ -242,9 +249,11 @@ async fn mint_tokens(
 ) -> Result<Json<MintResponse>, ApiError> {
     let token = extract_bearer(&headers)?;
     let user = resolve_user(&state, token).await?;
-    let amount = payload
-        .amount
-        .unwrap_or_else(|| state.faucet.default_amount(&user.role));
+    let amount = if let Some(amount) = payload.amount {
+        amount
+    } else {
+        state.faucet.default_amount(&user.role).await.unwrap_or(100000000)
+    };
 
     let outcome = state.faucet.mint(&user, amount).await?;
     let snapshot = state.faucet.quota_snapshot(&user).await?;
@@ -288,7 +297,7 @@ async fn build_user_view(state: &AppState, user: &User) -> Result<UserView, ApiE
         handle: user.handle.clone(),
         role: user.role.clone(),
         max_amount: state.faucet.max_amount_for_role(&user.role),
-        max_daily_cap: state.faucet.max_daily_cap(&user.role),
+        max_daily_cap: state.faucet.max_daily_cap(&user.role).await?,
         minted_today: snapshot.minted,
         remaining_today: snapshot.remaining(),
     })
@@ -359,4 +368,31 @@ async fn shutdown_signal() {
     }
 
     info!("收到关闭信号");
+}
+
+async fn get_configs(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<faucet_core::models::SystemConfig>>, ApiError> {
+    let _user = resolve_user(&state, extract_bearer(&headers)?).await?;
+    // TODO: 检查用户是否为管理员
+    
+    let configs = state.faucet.get_all_configs().await?;
+    Ok(Json(configs))
+}
+
+async fn update_limit_config(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<faucet_core::models::LimitConfigUpdate>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let _user = resolve_user(&state, extract_bearer(&headers)?).await?;
+    // TODO: 检查用户是否为管理员
+    
+    state.faucet.update_limit_config(&payload).await?;
+    
+    Ok(Json(serde_json::json!({
+        "message": "配置已更新",
+        "success": true
+    })))
 }

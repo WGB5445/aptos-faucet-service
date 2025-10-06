@@ -3,15 +3,16 @@ http_addr = "0.0.0.0:8080"
 public_base_url = "http://localhost:8080"
 
 [limits]
-default_amount = 1
-default_daily_cap = 5
-privileged_amount = 500
-privileged_daily_cap = 1000
+default_amount = 100000000  # 1 APT (1 * 1e8)
+default_daily_cap = 500000000  # 5 APT (5 * 1e8)
+privileged_amount = 1000000000  # 10 APT (10 * 1e8)
+privileged_daily_cap = 5000000000  # 50 APT (50 * 1e8)
 
 [auth]
 google_client_id = ""
 google_client_secret = ""
 privileged_domains = ["aptoslabs.com"]
+jwt_expiry_hours = 168  # 7天过期
 
 [queue]
 visibility_timeout = "30s"

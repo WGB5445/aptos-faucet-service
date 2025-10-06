@@ -7,7 +7,7 @@ use crate::{
     config::DatabaseConfig,
     models::{MintOutcome, MintRequest, MintStatus, Quota, Role, User},
     repository::{
-        DailyReportRow, MintRepository, QuotaRepository, ReportingRepository, UserRepository,
+        DailyReportRow, MintRepository, QuotaRepository, ReportingRepository, UserRepository, ConfigRepository,
     },
 };
 
@@ -272,6 +272,59 @@ where
         reason: &str,
     ) -> anyhow::Result<()> {
         (**self).log_failure(request_id, when, reason).await
+    }
+}
+
+#[async_trait]
+impl ConfigRepository for DatabaseStore {
+    async fn get_config(&self, key: &str) -> anyhow::Result<Option<crate::models::SystemConfig>> {
+        match self {
+            #[cfg(feature = "postgres")]
+            DatabaseStore::Postgres(store) => store.get_config(key).await,
+            #[cfg(feature = "mongodb")]
+            DatabaseStore::Mongo(store) => store.get_config(key).await,
+            DatabaseStore::Memory(store) => store.get_config(key).await,
+        }
+    }
+
+    async fn set_config(&self, key: &str, value: &str, description: Option<&str>) -> anyhow::Result<()> {
+        match self {
+            #[cfg(feature = "postgres")]
+            DatabaseStore::Postgres(store) => store.set_config(key, value, description).await,
+            #[cfg(feature = "mongodb")]
+            DatabaseStore::Mongo(store) => store.set_config(key, value, description).await,
+            DatabaseStore::Memory(store) => store.set_config(key, value, description).await,
+        }
+    }
+
+    async fn get_all_configs(&self) -> anyhow::Result<Vec<crate::models::SystemConfig>> {
+        match self {
+            #[cfg(feature = "postgres")]
+            DatabaseStore::Postgres(store) => store.get_all_configs().await,
+            #[cfg(feature = "mongodb")]
+            DatabaseStore::Mongo(store) => store.get_all_configs().await,
+            DatabaseStore::Memory(store) => store.get_all_configs().await,
+        }
+    }
+
+    async fn update_limit_config(&self, config: &crate::models::LimitConfigUpdate) -> anyhow::Result<()> {
+        match self {
+            #[cfg(feature = "postgres")]
+            DatabaseStore::Postgres(store) => store.update_limit_config(config).await,
+            #[cfg(feature = "mongodb")]
+            DatabaseStore::Mongo(store) => store.update_limit_config(config).await,
+            DatabaseStore::Memory(store) => store.update_limit_config(config).await,
+        }
+    }
+
+    async fn get_limit_config(&self) -> anyhow::Result<Option<crate::models::LimitConfigUpdate>> {
+        match self {
+            #[cfg(feature = "postgres")]
+            DatabaseStore::Postgres(store) => store.get_limit_config().await,
+            #[cfg(feature = "mongodb")]
+            DatabaseStore::Mongo(store) => store.get_limit_config().await,
+            DatabaseStore::Memory(store) => store.get_limit_config().await,
+        }
     }
 }
 

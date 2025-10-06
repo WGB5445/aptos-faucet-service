@@ -151,3 +151,21 @@ pub fn role_from_db(value: &str) -> anyhow::Result<Role> {
 pub fn status_from_db(value: &str) -> anyhow::Result<MintStatus> {
     MintStatus::from_str(value).with_context(|| format!("invalid status value: {value}"))
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemConfig {
+    pub id: Uuid,
+    pub key: String,
+    pub value: String,
+    pub description: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LimitConfigUpdate {
+    pub default_amount: Option<u64>,
+    pub default_daily_cap: Option<u64>,
+    pub privileged_amount: Option<u64>,
+    pub privileged_daily_cap: Option<u64>,
+}

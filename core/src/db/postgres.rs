@@ -82,6 +82,16 @@ impl PostgresStore {
                 reason TEXT NOT NULL
             );
             "#,
+            r#"
+            CREATE TABLE IF NOT EXISTS system_configs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                key TEXT UNIQUE NOT NULL,
+                value TEXT NOT NULL,
+                description TEXT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            "#,
         ];
 
         for statement in statements {
@@ -395,5 +405,102 @@ impl ReportingRepository for PostgresStore {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::repository::ConfigRepository for PostgresStore {
+    async fn get_config(&self, key: &str) -> Result<Option<crate::models::SystemConfig>> {
+        let row = sqlx::query(
+            "SELECT id, key, value, description, created_at, updated_at FROM system_configs WHERE key = $1"
+        )
+        .bind(key)
+        .fetch_optional(&self.pool)
+        .await?;
+        
+        if let Some(row) = row {
+            Ok(Some(crate::models::SystemConfig {
+                id: row.get("id"),
+                key: row.get("key"),
+                value: row.get("value"),
+                description: row.get("description"),
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn set_config(&self, key: &str, value: &str, description: Option<&str>) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO system_configs (key, value, description)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (key) DO UPDATE SET
+                value = EXCLUDED.value,
+                description = EXCLUDED.description,
+                updated_at = NOW()
+            "#
+        )
+        .bind(key)
+        .bind(value)
+        .bind(description)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn get_all_configs(&self) -> Result<Vec<crate::models::SystemConfig>> {
+        let rows = sqlx::query(
+            "SELECT id, key, value, description, created_at, updated_at FROM system_configs ORDER BY key"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        
+        let configs = rows.into_iter().map(|row| crate::models::SystemConfig {
+            id: row.get("id"),
+            key: row.get("key"),
+            value: row.get("value"),
+            description: row.get("description"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        }).collect();
+        
+        Ok(configs)
+    }
+
+    async fn update_limit_config(&self, config: &crate::models::LimitConfigUpdate) -> Result<()> {
+        if let Some(amount) = config.default_amount {
+            self.set_config("limits.default_amount", &amount.to_string(), Some("Default user amount")).await?;
+        }
+        if let Some(cap) = config.default_daily_cap {
+            self.set_config("limits.default_daily_cap", &cap.to_string(), Some("Default user daily cap")).await?;
+        }
+        if let Some(amount) = config.privileged_amount {
+            self.set_config("limits.privileged_amount", &amount.to_string(), Some("Privileged user amount")).await?;
+        }
+        if let Some(cap) = config.privileged_daily_cap {
+            self.set_config("limits.privileged_daily_cap", &cap.to_string(), Some("Privileged user daily cap")).await?;
+        }
+        Ok(())
+    }
+
+    async fn get_limit_config(&self) -> Result<Option<crate::models::LimitConfigUpdate>> {
+        let default_amount = self.get_config("limits.default_amount").await?.map(|c| c.value.parse::<u64>().ok()).flatten();
+        let default_daily_cap = self.get_config("limits.default_daily_cap").await?.map(|c| c.value.parse::<u64>().ok()).flatten();
+        let privileged_amount = self.get_config("limits.privileged_amount").await?.map(|c| c.value.parse::<u64>().ok()).flatten();
+        let privileged_daily_cap = self.get_config("limits.privileged_daily_cap").await?.map(|c| c.value.parse::<u64>().ok()).flatten();
+
+        if default_amount.is_some() || default_daily_cap.is_some() || privileged_amount.is_some() || privileged_daily_cap.is_some() {
+            Ok(Some(crate::models::LimitConfigUpdate {
+                default_amount,
+                default_daily_cap,
+                privileged_amount,
+                privileged_daily_cap,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 }
