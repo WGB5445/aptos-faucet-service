@@ -22,7 +22,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* Logo */}
             <div className="flex items-center">
               <Link to="/" className="flex items-center space-x-2">
-                <Droplets className="h-8 w-8 text-primary-600" />
+                <Droplets className="h-8 w-8 text-blue-600" />
                 <span className="text-xl font-bold text-gray-900">水龙头服务</span>
               </Link>
             </div>
@@ -33,7 +33,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 to="/"
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   location.pathname === '/'
-                    ? 'text-primary-600 bg-primary-50'
+                    ? 'text-blue-600 bg-blue-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -44,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   to="/admin"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     location.pathname === '/admin'
-                      ? 'text-primary-600 bg-primary-50'
+                      ? 'text-blue-600 bg-blue-50'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >

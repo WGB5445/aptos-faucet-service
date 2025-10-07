@@ -34,18 +34,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!user;
 
-  const refreshUser = async () => {
+  const refreshUser = async (): Promise<void> => {
     try {
-      const token = localStorage.getItem('auth_token');
       const userData = await authApi.getCurrentUser();
       setUser(userData);
-      return true;
     } catch (error) {
       // 如果token过期或无效，清除本地存储
       localStorage.removeItem('auth_token');
       setUser(null);
       setGoogleUser(null);
-      return false;
     }
   };
 
@@ -83,7 +80,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (token) {
           // Try to get current user
-          const success = await refreshUser();
+          await refreshUser();
         }
       } catch (error) {
         // Clear invalid token
@@ -102,7 +99,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     // 监听Google登录失败事件
-    const handleGoogleSignInError = (event: any) => {
+    const handleGoogleSignInError = () => {
       setIsLoading(false);
     };
 

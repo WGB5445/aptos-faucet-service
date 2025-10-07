@@ -183,7 +183,7 @@ const AdminPage: React.FC = () => {
                     value={option.value}
                     checked={formData.role === option.value}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
                   <label htmlFor={option.value} className="ml-3">
                     <div className="text-sm font-medium text-gray-900">

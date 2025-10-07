@@ -143,8 +143,8 @@ const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
-                <Droplets className="h-6 w-6 text-primary-600" />
+              <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <Droplets className="h-6 w-6 text-blue-600" />
               </div>
               <h1 className="ml-3 text-2xl font-bold text-gray-900">水龙头服务</h1>
             </div>
@@ -216,8 +216,8 @@ const LandingPage: React.FC = () => {
             /* Login Section */
             <div className="text-center mb-12">
               <div className="card p-8 max-w-md mx-auto">
-                <div className="mx-auto h-16 w-16 bg-primary-100 rounded-full flex items-center justify-center mb-6">
-                  <LogIn className="h-8 w-8 text-primary-600" />
+                <div className="mx-auto h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mb-6">
+                  <LogIn className="h-8 w-8 text-blue-600" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">登录账户</h3>
                 <p className="text-gray-600 mb-6">
@@ -243,7 +243,7 @@ const LandingPage: React.FC = () => {
               {/* Step 1: Wallet Address Input - Most Important */}
               <div className="card p-6">
                 <div className="flex items-center mb-4">
-                  <div className="flex items-center justify-center w-8 h-8 bg-primary-100 text-primary-600 rounded-full text-sm font-semibold mr-3">
+                  <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold mr-3">
                     1
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900">输入钱包地址</h3>
@@ -268,7 +268,7 @@ const LandingPage: React.FC = () => {
               {walletAddress.trim() && (
                 <div className="card p-6">
                   <div className="flex items-center mb-4">
-                    <div className="flex items-center justify-center w-8 h-8 bg-primary-100 text-primary-600 rounded-full text-sm font-semibold mr-3">
+                    <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold mr-3">
                       2
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900">选择领取方式</h3>
@@ -381,7 +381,7 @@ const LandingPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="text-center p-3 bg-white rounded-lg">
                     <div className="text-sm text-gray-600 mb-1">用户角色</div>
-                    <div className="font-semibold capitalize text-primary-600">{user?.role}</div>
+                    <div className="font-semibold capitalize text-blue-600">{user?.role}</div>
                   </div>
                   <div className="text-center p-3 bg-white rounded-lg">
                     <div className="text-sm text-gray-600 mb-1">最大单次领取</div>
