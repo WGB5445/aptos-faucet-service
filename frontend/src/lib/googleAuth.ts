@@ -48,10 +48,8 @@ class GoogleAuthService {
 
   private async handleCredentialResponse(response: any): Promise<void> {
     try {
-      console.log('Received credential response:', response);
       // 解析 JWT token
       const payload = this.parseJwt(response.credential);
-      console.log('Parsed JWT payload:', payload);
       
       const googleUser: GoogleUser = {
         id: payload.sub,
@@ -59,31 +57,18 @@ class GoogleAuthService {
         name: payload.name,
         picture: payload.picture,
       };
-      console.log('Created Google user:', googleUser);
 
       // 创建后端会话
-      console.log('Creating session with backend...');
       const session = await authApi.createSession(response.credential);
-      console.log('Session created:', session);
       
       // 存储 token
-      console.log('Storing token to localStorage:', session.token.substring(0, 50) + '...');
       localStorage.setItem('auth_token', session.token);
-      console.log('Token stored in localStorage');
-      
-      // 验证存储是否成功
-      const storedToken = localStorage.getItem('auth_token');
-      console.log('Verification - stored token:', storedToken ? 'SUCCESS' : 'FAILED');
-      console.log('Verification - token length:', storedToken?.length || 0);
 
       // 触发登录成功事件
-      console.log('Dispatching googleSignIn event with data:', { user: googleUser, session });
       window.dispatchEvent(new CustomEvent('googleSignIn', { 
         detail: { user: googleUser, session } 
       }));
-      console.log('Google sign in event dispatched');
     } catch (error) {
-      console.error('Google sign in failed:', error);
       window.dispatchEvent(new CustomEvent('googleSignInError', { 
         detail: { error } 
       }));
@@ -102,7 +87,6 @@ class GoogleAuthService {
       );
       return JSON.parse(jsonPayload);
     } catch (error) {
-      console.error('Failed to parse JWT:', error);
       return {};
     }
   }
@@ -113,11 +97,8 @@ class GoogleAuthService {
     }
 
     return new Promise((resolve, reject) => {
-      console.log('Setting up Google sign in event listeners...');
-      
       // 监听登录成功事件
       const handleSuccess = (event: any) => {
-        console.log('Google sign in success event received:', event.detail);
         window.removeEventListener('googleSignIn', handleSuccess);
         window.removeEventListener('googleSignInError', handleError);
         resolve(event.detail);
@@ -125,7 +106,6 @@ class GoogleAuthService {
 
       // 监听登录失败事件
       const handleError = (event: any) => {
-        console.log('Google sign in error event received:', event.detail);
         window.removeEventListener('googleSignIn', handleSuccess);
         window.removeEventListener('googleSignInError', handleError);
         reject(event.detail.error);
@@ -135,11 +115,9 @@ class GoogleAuthService {
       const checkForPendingEvent = () => {
         const token = localStorage.getItem('auth_token');
         if (token) {
-          console.log('Found existing token, checking if it\'s valid...');
           // 如果有token，尝试获取用户信息来验证
           authApi.getCurrentUser()
             .then(user => {
-              console.log('Existing token is valid, using existing session');
               // 从localStorage获取token，构造session对象
               const session = {
                 token: token,
@@ -155,14 +133,12 @@ class GoogleAuthService {
               resolve({ user: googleUser, session });
             })
             .catch(() => {
-              console.log('Existing token is invalid, proceeding with new login');
               // Token无效，继续正常登录流程
               window.addEventListener('googleSignIn', handleSuccess);
               window.addEventListener('googleSignInError', handleError);
               window.google.accounts.id.prompt();
             });
         } else {
-          console.log('No existing token, proceeding with new login');
           window.addEventListener('googleSignIn', handleSuccess);
           window.addEventListener('googleSignInError', handleError);
           window.google.accounts.id.prompt();
@@ -195,7 +171,6 @@ class GoogleAuthService {
         picture: '', // 后端没有存储头像信息
       };
     } catch (error) {
-      console.error('Failed to get current user:', error);
       return null;
     }
   }
@@ -203,7 +178,6 @@ class GoogleAuthService {
   // 渲染 Google 登录按钮
   renderButton(elementId: string): void {
     if (!this.isInitialized) {
-      console.error('Google Auth not initialized');
       return;
     }
 

@@ -42,7 +42,6 @@ const AdminPage: React.FC = () => {
         role: 'user'
       });
     } catch (error: any) {
-      console.error('Update role failed:', error);
       setMessage({ 
         type: 'error', 
         text: error.response?.data?.message || '更新失败，请重试' 

@@ -12,6 +12,11 @@ export interface SessionResponse {
   user: User;
 }
 
+export interface MintRequest {
+  amount?: number;
+  wallet_address?: string;
+}
+
 export interface MintResponse {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   amount: number;

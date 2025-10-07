@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
 import TestLoginPage from './pages/TestLoginPage';
-import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
 import LoadingSpinner from './components/LoadingSpinner';
 
@@ -19,7 +18,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   if (adminOnly && user?.role !== 'admin') {
@@ -40,13 +39,6 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/test-login" element={<TestLoginPage />} />
-      <Route path="/home" element={
-        <ProtectedRoute>
-          <Layout>
-            <HomePage />
-          </Layout>
-        </ProtectedRoute>
-      } />
       <Route path="/admin" element={
         <ProtectedRoute adminOnly>
           <Layout>

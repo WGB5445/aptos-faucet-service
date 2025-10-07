@@ -42,7 +42,6 @@ const TestLoginPage: React.FC = () => {
           googleAuth.renderButton(googleButtonRef.current.id);
         }
       } catch (err) {
-        console.error('Failed to initialize Google Auth:', err);
         setError('Google 登录初始化失败');
       }
     };
@@ -84,24 +83,19 @@ const TestLoginPage: React.FC = () => {
 
   const handleCheckJWT = () => {
     const token = localStorage.getItem('auth_token');
-    console.log('Manual JWT check:');
-    console.log('- Token exists:', !!token);
-    console.log('- Token length:', token?.length || 0);
-    console.log('- Token preview:', token ? `${token.substring(0, 50)}...` : 'null');
     
     if (token) {
       try {
         // 解析JWT payload
         const payload = JSON.parse(atob(token.split('.')[1]));
-        console.log('- JWT payload:', payload);
-        console.log('- JWT expires at:', new Date(payload.exp * 1000));
-        console.log('- JWT is expired:', Date.now() > payload.exp * 1000);
+        const isExpired = Date.now() > payload.exp * 1000;
+        setError(`JWT检查完成 - 过期状态: ${isExpired ? '已过期' : '有效'}`);
       } catch (e) {
-        console.log('- JWT parse error:', e);
+        setError('JWT解析失败');
       }
+    } else {
+      setError('没有找到JWT token');
     }
-    
-    setError(token ? 'JWT检查完成，请查看控制台' : '没有找到JWT token');
   };
 
   return (

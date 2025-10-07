@@ -10,24 +10,32 @@ import {
   AlertCircle,
   RefreshCw,
   Coins,
-  Calendar,
   Zap,
   LogIn,
   User,
   Shield,
-  Star
+  Star,
+  Wallet
 } from 'lucide-react';
 import { googleAuth } from '../lib/googleAuth';
 
 const LandingPage: React.FC = () => {
-  const { user, isAuthenticated, signIn, signOut, refreshUser } = useAuth();
+  const { user, isAuthenticated, signOut, refreshUser } = useAuth();
   const [isMinting, setIsMinting] = useState(false);
   const [mintResult, setMintResult] = useState<MintResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [customAmount, setCustomAmount] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string>('');
   const googleButtonRef = useRef<HTMLDivElement>(null);
+
+  // 处理URL参数中的address
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const address = urlParams.get('address');
+    if (address) {
+      setWalletAddress(address);
+    }
+  }, []);
 
   const formatAmount = (amount: number) => {
     return (amount / 1e8).toFixed(2);
@@ -44,13 +52,18 @@ const LandingPage: React.FC = () => {
       setError(null);
       setMintResult(null);
 
-      const result = await faucetApi.mintTokens(amount);
+      // 验证钱包地址
+      if (!walletAddress.trim()) {
+        setError('请输入钱包地址');
+        return;
+      }
+
+      const result = await faucetApi.mintTokens(amount, walletAddress);
       setMintResult(result);
       
       // Refresh user data to update quotas
       await refreshUser();
     } catch (err: any) {
-      console.error('Mint failed:', err);
       setError(err.response?.data?.message || '领取失败，请重试');
     } finally {
       setIsMinting(false);
@@ -114,7 +127,7 @@ const LandingPage: React.FC = () => {
           googleAuth.renderButton(googleButtonRef.current.id);
         }
       } catch (err) {
-        console.error('Failed to initialize Google Auth:', err);
+        // 忽略初始化错误
       }
     };
 
@@ -197,29 +210,21 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Login Section */}
+        {/* Main Content */}
+        <div className="max-w-4xl mx-auto">
           {!isAuthenticated ? (
-            <div className="lg:col-span-1">
-              <div className="card p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">登录账户</h3>
-                <p className="text-sm text-gray-600 mb-6">
+            /* Login Section */
+            <div className="text-center mb-12">
+              <div className="card p-8 max-w-md mx-auto">
+                <div className="mx-auto h-16 w-16 bg-primary-100 rounded-full flex items-center justify-center mb-6">
+                  <LogIn className="h-8 w-8 text-primary-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">登录账户</h3>
+                <p className="text-gray-600 mb-6">
                   使用您的 Google 账户登录以开始领取代币
                 </p>
                 
-                {loginError && (
-                  <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
-                    <div className="flex">
-                      <AlertCircle className="h-5 w-5 text-red-400" />
-                      <div className="ml-3">
-                        <p className="text-sm text-red-800">{loginError}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  {/* Google 登录按钮容器 */}
+                <div className="mb-4">
                   <div 
                     ref={googleButtonRef}
                     id="google-signin-button"
@@ -227,67 +232,48 @@ const LandingPage: React.FC = () => {
                   ></div>
                 </div>
 
-                <div className="mt-4 text-center">
-                  <p className="text-xs text-gray-500">
-                    登录即表示您同意我们的服务条款和隐私政策
-                  </p>
-                </div>
+                <p className="text-xs text-gray-500">
+                  登录即表示您同意我们的服务条款和隐私政策
+                </p>
               </div>
             </div>
           ) : (
-            /* User Stats */
-            <div className="lg:col-span-1">
+            /* Authenticated User Interface - Step by Step Flow */
+            <div className="space-y-6">
+              {/* Step 1: Wallet Address Input - Most Important */}
               <div className="card p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">账户信息</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">用户角色</span>
-                    <span className="text-sm font-medium capitalize">{user?.role}</span>
+                <div className="flex items-center mb-4">
+                  <div className="flex items-center justify-center w-8 h-8 bg-primary-100 text-primary-600 rounded-full text-sm font-semibold mr-3">
+                    1
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">最大单次领取</span>
-                    <span className="text-sm font-medium">{formatAmount(user?.max_amount || 0)} APT</span>
-                  </div>
-                  {user?.max_daily_cap && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">每日限额</span>
-                      <span className="text-sm font-medium">{formatAmount(user.max_daily_cap)} APT</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">今日已领取</span>
-                    <span className="text-sm font-medium">{formatAmount(user?.minted_today || 0)} APT</span>
-                  </div>
-                  {user?.remaining_today !== undefined && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">今日剩余</span>
-                      <span className="text-sm font-medium text-green-600">
-                        {formatAmount(user.remaining_today)} APT
-                      </span>
-                    </div>
-                  )}
+                  <h3 className="text-lg font-semibold text-gray-900">输入钱包地址</h3>
                 </div>
+                
+                <div className="relative">
+                  <Wallet className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={walletAddress}
+                    onChange={(e) => setWalletAddress(e.target.value)}
+                    placeholder="输入钱包地址 (0x...)"
+                    className="input pl-12 w-full text-lg"
+                  />
+                </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  请输入有效的钱包地址，代币将发送到此地址
+                </p>
               </div>
-            </div>
-          )}
 
-          {/* Mint Interface */}
-          <div className="lg:col-span-2">
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">领取代币</h3>
-              
-              {!isAuthenticated ? (
-                <div className="text-center py-8">
-                  <div className="mx-auto h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <LogIn className="h-8 w-8 text-gray-400" />
+              {/* Step 2: Quick Actions - Only show if wallet address is provided */}
+              {walletAddress.trim() && (
+                <div className="card p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="flex items-center justify-center w-8 h-8 bg-primary-100 text-primary-600 rounded-full text-sm font-semibold mr-3">
+                      2
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">选择领取方式</h3>
                   </div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">请先登录</h4>
-                  <p className="text-gray-600 mb-6">
-                    使用您的 Google 账户登录以开始领取代币
-                  </p>
-                </div>
-              ) : (
-                <>
+                  
                   {error && (
                     <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
                       <div className="flex">
@@ -320,89 +306,132 @@ const LandingPage: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="space-y-4">
-                    {/* Quick mint buttons */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        快速领取
-                      </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={() => handleMint()}
-                          disabled={isMinting || (user?.remaining_today !== undefined && user.remaining_today <= 0)}
-                          className="btn btn-primary btn-md disabled:opacity-50"
-                        >
-                          <Droplets className="h-4 w-4 mr-2" />
-                          默认数量
-                        </button>
-                        <button
-                          onClick={() => handleMint(user?.max_amount)}
-                          disabled={isMinting || (user?.remaining_today !== undefined && user.remaining_today < (user?.max_amount || 0))}
-                          className="btn btn-outline btn-md disabled:opacity-50"
-                        >
-                          <Zap className="h-4 w-4 mr-2" />
-                          最大数量
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Custom amount */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        自定义数量
-                      </label>
-                      <div className="flex space-x-2">
-                        <input
-                          type="number"
-                          value={customAmount}
-                          onChange={(e) => setCustomAmount(e.target.value)}
-                          placeholder="输入数量 (APT)"
-                          step="0.01"
-                          min="0"
-                          max={formatAmount(user?.max_amount || 0)}
-                          className="input flex-1"
-                        />
-                        <button
-                          onClick={handleCustomMint}
-                          disabled={isMinting || !customAmount}
-                          className="btn btn-primary btn-md disabled:opacity-50"
-                        >
-                          <Coins className="h-4 w-4 mr-2" />
-                          领取
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        最大: {formatAmount(user?.max_amount || 0)} APT
-                      </p>
+                  {/* Quick mint buttons */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      快速领取
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <button
+                        onClick={() => handleMint(100000000)}
+                        disabled={isMinting || (user?.remaining_today !== undefined && user.remaining_today <= 0)}
+                        className="btn btn-primary btn-lg disabled:opacity-50 flex items-center justify-center"
+                      >
+                        <Droplets className="h-5 w-5 mr-2" />
+                        <div className="text-left">
+                          <div className="font-semibold">默认数量</div>
+                          <div className="text-sm opacity-90">1.00 APT</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleMint(user?.max_amount)}
+                        disabled={isMinting || (user?.remaining_today !== undefined && user.remaining_today < (user?.max_amount || 0))}
+                        className="btn btn-outline btn-lg disabled:opacity-50 flex items-center justify-center"
+                      >
+                        <Zap className="h-5 w-5 mr-2" />
+                        <div className="text-left">
+                          <div className="font-semibold">最大数量</div>
+                          <div className="text-sm opacity-90">{formatAmount(user?.max_amount || 0)} APT</div>
+                        </div>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Daily quota info */}
+                  {/* Custom amount */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      自定义数量
+                    </label>
+                    <div className="flex space-x-3">
+                      <input
+                        type="number"
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        placeholder="输入数量 (APT)"
+                        step="0.01"
+                        min="0"
+                        max={formatAmount(user?.max_amount || 0)}
+                        className="input flex-1 text-lg"
+                      />
+                      <button
+                        onClick={handleCustomMint}
+                        disabled={isMinting || !customAmount}
+                        className="btn btn-primary btn-lg disabled:opacity-50 flex items-center px-8"
+                      >
+                        <Coins className="h-5 w-5 mr-2" />
+                        领取
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      最大: {formatAmount(user?.max_amount || 0)} APT
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: User Info - Always visible but less prominent */}
+              <div className="card p-6 bg-gray-50">
+                <div className="flex items-center mb-4">
+                  <div className="flex items-center justify-center w-8 h-8 bg-gray-200 text-gray-600 rounded-full text-sm font-semibold mr-3">
+                    i
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">账户信息</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-white rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">用户角色</div>
+                    <div className="font-semibold capitalize text-primary-600">{user?.role}</div>
+                  </div>
+                  <div className="text-center p-3 bg-white rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">最大单次领取</div>
+                    <div className="font-semibold text-gray-900">{formatAmount(user?.max_amount || 0)} APT</div>
+                  </div>
                   {user?.max_daily_cap && (
-                    <div className="mt-6 card p-4">
-                      <div className="flex items-center">
-                        <Calendar className="h-5 w-5 text-blue-500 mr-2" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">今日配额</p>
-                          <p className="text-sm text-gray-600">
-                            已使用 {formatAmount(user.minted_today)} / {formatAmount(user.max_daily_cap)} APT
-                          </p>
-                          <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{
-                                width: `${Math.min((user.minted_today / user.max_daily_cap) * 100, 100)}%`
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
+                    <div className="text-center p-3 bg-white rounded-lg">
+                      <div className="text-sm text-gray-600 mb-1">每日限额</div>
+                      <div className="font-semibold text-gray-900">{formatAmount(user.max_daily_cap)} APT</div>
                     </div>
                   )}
-                </>
-              )}
+                  <div className="text-center p-3 bg-white rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">今日已领取</div>
+                    <div className="font-semibold text-gray-900">{formatAmount(user?.minted_today || 0)} APT</div>
+                  </div>
+                </div>
+                
+                {user?.remaining_today !== undefined && (
+                  <div className="mt-4 p-4 bg-green-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-800">今日剩余</span>
+                      <span className="text-lg font-bold text-green-600">
+                        {formatAmount(user.remaining_today)} APT
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Daily quota progress */}
+                {user?.max_daily_cap && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">今日配额</span>
+                      <span className="text-sm text-gray-600">
+                        {formatAmount(user.minted_today)} / {formatAmount(user.max_daily_cap)} APT
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min((user.minted_today / user.max_daily_cap) * 100, 100)}%`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

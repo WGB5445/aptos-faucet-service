@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { User, SessionResponse, MintResponse, RoleUpdateRequest } from '../types';
+import { User, SessionResponse, MintRequest, MintResponse, RoleUpdateRequest } from '../types';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || '/api';
 
@@ -16,22 +16,17 @@ api.interceptors.request.use((config: any) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  console.log('API request:', config.method?.toUpperCase(), config.url, 'with token:', !!token);
   return config;
 });
 
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response: any) => {
-    console.log('API response:', response.status, response.config.url);
     return response;
   },
   (error: any) => {
-    console.error('API error:', error.response?.status, error.config?.url, error.message);
     if (error.response?.status === 401) {
-      console.log('API: 401 error detected, clearing auth_token from localStorage');
       localStorage.removeItem('auth_token');
-      console.log('API: Token cleared, redirecting to home page');
       // 重定向到首页，让LandingPage处理登录状态
       window.location.href = '/';
     }
@@ -52,8 +47,12 @@ export const authApi = {
 };
 
 export const faucetApi = {
-  async mintTokens(amount?: number): Promise<MintResponse> {
-    const response = await api.post('/api/mint', { amount });
+  async mintTokens(amount?: number, walletAddress?: string): Promise<MintResponse> {
+    const request: MintRequest = { 
+      amount,
+      wallet_address: walletAddress 
+    };
+    const response = await api.post('/api/mint', request);
     return response.data;
   },
 };

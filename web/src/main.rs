@@ -179,6 +179,7 @@ struct UserView {
 #[derive(Debug, Deserialize)]
 struct MintRequestPayload {
     amount: Option<u64>,
+    wallet_address: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -254,6 +255,17 @@ async fn mint_tokens(
     } else {
         state.faucet.default_amount(&user.role).await.unwrap_or(100000000)
     };
+
+    // 验证钱包地址（如果提供）
+    if let Some(ref wallet_address) = payload.wallet_address {
+        if wallet_address.trim().is_empty() {
+            return Err(ApiError::BadRequest("钱包地址不能为空".to_string()));
+        }
+        // 这里可以添加更多的钱包地址验证逻辑
+        if !wallet_address.starts_with("0x") {
+            return Err(ApiError::BadRequest("钱包地址格式不正确，应以0x开头".to_string()));
+        }
+    }
 
     let outcome = state.faucet.mint(&user, amount).await?;
     let snapshot = state.faucet.quota_snapshot(&user).await?;
